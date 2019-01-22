@@ -4,22 +4,68 @@
  */
 
 #include <mbed.h>
+#include <Semaphore.h>
 
-DigitalOut   red(LED1,1); /* initialise to 1 = off */
+/* Threads */
+Thread trafficLights;
+Thread crossingLights;
 
-void flash_red(void)
-{
+/* Event Queue */
+EventQueue queue(32 * EVENTS_EVENT_SIZE);
+
+/* Semaphores */
+Semaphore buttonPressed(1);
+
+/* Traffic Lights */
+DigitalOut	trafficRed(LED1, 1);
+DigitalOut	trafficGreen(LED2, 1);
+DigitalOut	trafficBlue(LED3, 1);
+
+/* Pedestrian Lights */
+DigitalOut	crossRed (D5, 1);
+DigitalOut	crossGreen (D9, 1);
+
+InterruptIn button(D4);
+
+bool beeping = false;
+
+
+void trafficSequence(void) {
+	buttonPressed.wait();
 	while(true) {
-		red = !red;
-		wait(0.3);
+		// Amber on for 3 seconds
+		trafficGreen = 1;
+		trafficBlue = 0;
+		wait(3.0);
+		
+		// Red on for 2 seconds
+		trafficBlue = 1;
+		trafficRed = 0;
+		wait(2.0);
+		
+		// Red on for 5 seconds with audible tone
+		beeping = true;
+		wait(5.0);
+		
+		// Stop beeping
+		beeping = false;
+		wait(4.0);
+		trafficRed = 1;
+		trafficGreen = 0;
+		wait(5.0);
 	}
 }
 
-int main(void)
-{
-	Thread blink;
-	blink.start(flash_red);
+void buttonPress(void) {
+	//trafficRed = !trafficRed;
+}
 
-	blink.join();
+int main(void) {
+	trafficLights.start(callback(&queue, &EventQueue::dispatch_forever));
+	//crossingLights.start(callback(&queue, &EventQueue::dispatch_forever));
+	
+	button.rise(trafficSequence);
+	
+	
 }
 
